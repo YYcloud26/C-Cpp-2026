@@ -7,10 +7,10 @@ int main() {
     printf("Enter a number: ");
     scanf("%i", &number);
 
-    if (number == 2 || number ==3)
-        printf("prime");
-    else if (number < 2)
+    if (number < 2)
         printf("cannot be sorted");
+    else if (number == 2 or number == 3)
+        printf("prime");
     else {
         for (int i = 3; i*i <= number; i += 2) {
             if (number % i == 0) {
