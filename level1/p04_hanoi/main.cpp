@@ -17,7 +17,10 @@ int main() {
     char y = 'B';
     char z = 'C';
     int i;
-    printf("enter a number\n");
+    printf("enter a positive number\n");
     scanf("%i", &i);
-    hanoi(i, x, y, z);
+    if (i < 1)
+        printf("not a proper number\n");
+    else
+        hanoi(i, x, y, z);
 }
