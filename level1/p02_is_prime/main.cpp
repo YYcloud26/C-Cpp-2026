@@ -2,25 +2,34 @@
 
 int main() {
     int number;
-    int count = 3;
+    int is_prime = 1; 
 
     printf("Enter a number: ");
-    scanf("%i", &number);
+    scanf("%d", &number);
 
-    if (number < 2)
-        printf("cannot be sorted");
-    else if (number == 2 or number == 3)
-        printf("prime");
+    if (number <= 1) {
+        is_prime = 0;
+    } 
+    else if (number == 2 || number == 3) {
+        is_prime = 1;
+    } 
+    else if (number % 2 == 0) {
+        is_prime = 0;
+    } 
     else {
-        for (int i = 3; i*i <= number; i += 2) {
+        for (int i = 3; i <= number / i; i += 2) {
             if (number % i == 0) {
-                printf("not prime");
+                is_prime = 0;
                 break;
             }
-            count += 2;
         }
-        if ((count + 1)*(count + 1) > number)
-            printf("prime");
     }
+
+    if (is_prime) {
+        printf("prime\n");
+    } else {
+        printf("not prime\n");
+    }
+
     return 0;
 }
