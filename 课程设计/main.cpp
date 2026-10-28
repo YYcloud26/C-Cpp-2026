@@ -98,8 +98,6 @@ int main() {
     InitWindow(800, 800, "Raylib Gomoku");
     SetTargetFPS(60);
 
-    GameState currentState = MENU;
-
     int board[BOARD_SIZE][BOARD_SIZE] = {0};
     int currentPlayer = 1;
     bool gameOver = false;
