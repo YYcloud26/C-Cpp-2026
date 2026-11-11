@@ -1,7 +1,26 @@
 #include "ai_search.h"
+#include "zobrist.h"
 #include <cstdlib>
+#include <unordered_map>
 
-int maxSearch(int board[BOARD_SIZE][BOARD_SIZE], int depth, int alpha, int beta, int aiPlayer, int humanPlayer);
+struct TTEntry {
+    int depth;
+    int score;
+};
+
+std::unordered_map<uint64_t, TTEntry> transpositionTable;
+
+int maxSearch(int board[BOARD_SIZE][BOARD_SIZE], uint64_t hash, int depth, int alpha, int beta, int aiPlayer, int humanPlayer);
+
+int minSearch(int board[BOARD_SIZE][BOARD_SIZE], uint64_t hash, int depth, int alpha, int beta, int aiPlayer, int humanPlayer);
+
+inline void MakeMove(int board[BOARD_SIZE][BOARD_SIZE], int r, int c, int player) {
+    board[r][c] = player;
+}
+
+inline void UndoMove(int board[BOARD_SIZE][BOARD_SIZE], int r, int c) {
+    board[r][c] = 0;
+}
 
 std::vector<Point> gen(const int board[BOARD_SIZE][BOARD_SIZE], int depth, int aiPlayer, int humanPlayer) {
     bool hasPiece = false;
@@ -62,7 +81,12 @@ std::vector<Point> gen(const int board[BOARD_SIZE][BOARD_SIZE], int depth, int a
     return result;
 }
 
-int minSearch(int board[BOARD_SIZE][BOARD_SIZE], int depth, int alpha, int beta, int aiPlayer, int humanPlayer) {
+int minSearch(int board[BOARD_SIZE][BOARD_SIZE], uint64_t hash, int depth, int alpha, int beta, int aiPlayer, int humanPlayer) {
+    auto it = transpositionTable.find(hash);
+    if (it != transpositionTable.end() && it->second.depth >= depth) {
+        return it->second.score;
+    }
+
     int val = evaluate(board, aiPlayer);
     if (depth <= 0 || val >= 100000 || val <= -100000) return val;
 
@@ -70,18 +94,24 @@ int minSearch(int board[BOARD_SIZE][BOARD_SIZE], int depth, int alpha, int beta,
     int best = MAX_SCORE;
 
     for (const auto& p : points) {
-        board[p.row][p.col] = humanPlayer;
-        int v = maxSearch(board, depth - 1, alpha, beta, aiPlayer, humanPlayer);
-        board[p.row][p.col] = 0;
-
+        MakeMove(board, p.row, p.col, humanPlayer);
+        uint64_t nextHash = Zobrist::go(hash, p.row, p.col, humanPlayer);
+        int v = maxSearch(board, nextHash, depth - 1, alpha, beta, aiPlayer, humanPlayer);
+        UndoMove(board, p.row, p.col);
         best = std::min(best, v);
         beta = std::min(beta, best);
         if (beta <= alpha) break;
     }
+
+    transpositionTable[hash] = {depth, best};
     return best;
 }
 
-int maxSearch(int board[BOARD_SIZE][BOARD_SIZE], int depth, int alpha, int beta, int aiPlayer, int humanPlayer) {
+int maxSearch(int board[BOARD_SIZE][BOARD_SIZE], uint64_t hash, int depth, int alpha, int beta, int aiPlayer, int humanPlayer) {
+    auto it = transpositionTable.find(hash);
+    if (it != transpositionTable.end() && it->second.depth >= depth) {
+        return it->second.score;
+    }
     int val = evaluate(board, aiPlayer);
     if (depth <= 0 || val >= 100000 || val <= -100000) return val;
 
@@ -89,18 +119,21 @@ int maxSearch(int board[BOARD_SIZE][BOARD_SIZE], int depth, int alpha, int beta,
     int best = MIN_SCORE;
 
     for (const auto& p : points) {
-        board[p.row][p.col] = aiPlayer;
-        int v = minSearch(board, depth - 1, alpha, beta, aiPlayer, humanPlayer);
-        board[p.row][p.col] = 0;
+        MakeMove(board, p.row, p.col, aiPlayer);
+        uint64_t nextHash = Zobrist::go(hash, p.row, p.col, aiPlayer);
+        int v = minSearch(board, nextHash, depth - 1, alpha, beta, aiPlayer, humanPlayer);
 
+        UndoMove(board, p.row, p.col);
         best = std::max(best, v);
         alpha = std::max(alpha, best);
         if (beta <= alpha) break;
     }
+    transpositionTable[hash] = {depth, best};
     return best;
 }
 
-Point GetBestMove(const int board[BOARD_SIZE][BOARD_SIZE], int aiPlayer, int humanPlayer, int depth) {
+Point GetBestMove(int board[BOARD_SIZE][BOARD_SIZE], int aiPlayer, int humanPlayer, int depth) {
+    uint64_t currentHash = Zobrist::hashBoard(board);
     std::vector<Point> points = gen(board, depth, aiPlayer, humanPlayer);
     if (points.empty()) return {-1, -1};
     if (points.size() == 1) return points[0];
@@ -108,13 +141,11 @@ Point GetBestMove(const int board[BOARD_SIZE][BOARD_SIZE], int aiPlayer, int hum
     int bestVal = MIN_SCORE;
     std::vector<Point> bestPoints;
 
-    int tempBoard[BOARD_SIZE][BOARD_SIZE];
-    std::copy(&board[0][0], &board[0][0] + BOARD_SIZE * BOARD_SIZE, &tempBoard[0][0]);
-
     for (const auto& p : points) {
-        tempBoard[p.row][p.col] = aiPlayer;
-        int v = minSearch(tempBoard, depth - 1, MIN_SCORE, MAX_SCORE, aiPlayer, humanPlayer);
-        tempBoard[p.row][p.col] = 0;
+        MakeMove(board, p.row, p.col, aiPlayer);
+        uint64_t nextHash = Zobrist::go(currentHash, p.row, p.col, aiPlayer);
+        int v = minSearch(board, nextHash, depth - 1, MIN_SCORE, MAX_SCORE, aiPlayer, humanPlayer);
+        UndoMove(board, p.row, p.col);
 
         if (v > bestVal) {
             bestVal = v;
@@ -131,7 +162,8 @@ Point GetBestMove(const int board[BOARD_SIZE][BOARD_SIZE], int aiPlayer, int hum
     return result;
 }
 
-Point GetDeepeningMove(const int board[BOARD_SIZE][BOARD_SIZE], int aiPlayer, int humanPlayer, int maxDepth) {
+Point GetDeepeningMove(int board[BOARD_SIZE][BOARD_SIZE], int aiPlayer, int humanPlayer, int maxDepth) {
+    transpositionTable.clear();
     Point bestMove = {-1, -1, MIN_SCORE};
 
     for (int depth = 2; depth <= maxDepth; depth += 2) {
