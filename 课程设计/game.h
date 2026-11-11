@@ -1,4 +1,6 @@
 #pragma once
+#include <vector>
+#include <utility>
 
 const int BOARD_SIZE = 15;
 const int CELL_SIZE = 40;
@@ -18,8 +20,11 @@ struct GameContext {
     bool gameOver = false;
     int winner = 0;
     GameState currentState = MENU;
+
+    std::vector<std::pair<int, int>> history;
 };
 
 bool CheckWin(const int board[BOARD_SIZE][BOARD_SIZE], int row, int col, int player);
 void ResetGame(GameContext& ctx, GameState nextState);
 void PlacePiece(GameContext& ctx, int row, int col);
+void UndoPiece(GameContext& ctx);
