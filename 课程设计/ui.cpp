@@ -65,9 +65,9 @@ void DrawGameStatus(const GameContext& ctx) {
     }
 }
 
-void HandleMenuInput(GameContext& ctx, Vector2 mouse, Rectangle btnPVE, Rectangle btnPVP, bool& showPVEHint) {
+void HandleMenuInput(GameContext& ctx, Vector2 mouse, Rectangle btnPVE, Rectangle btnPVP) {
     if (CheckCollisionPointRec(mouse, btnPVE) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-        showPVEHint = true;
+        ResetGame(ctx, PVE);
     }
     if (CheckCollisionPointRec(mouse, btnPVP) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
         ResetGame(ctx, PVP);
@@ -78,6 +78,9 @@ bool HandleGameInput(GameContext& ctx, Vector2 mouse, Rectangle btnBack) {
     if (IsKeyPressed(KEY_ESCAPE) || (CheckCollisionPointRec(mouse, btnBack) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))) {
         ctx.currentState = MENU;
         return true;
+    }
+    if (!ctx.gameOver && IsKeyPressed(KEY_U)) {
+        UndoPiece(ctx);
     }
     if (ctx.gameOver && IsKeyPressed(KEY_R)) {
         ResetGame(ctx, ctx.currentState);
