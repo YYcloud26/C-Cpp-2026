@@ -1,8 +1,11 @@
 #include "raylib.h"
 #include "game.h"
 #include "ui.h"
+#include "ai.h"
+#include "zobrist.h"
 
 int main() {
+    Zobrist::init();
     SetConfigFlags(FLAG_MSAA_4X_HINT);
     InitWindow(800, 800, "Raylib Gomoku - Modularized");
     SetExitKey(KEY_NULL);
@@ -19,9 +22,14 @@ int main() {
         Vector2 mouse = GetMousePosition();
 
         if (ctx.currentState == MENU) {
-            HandleMenuInput(ctx, mouse, btnPVE, btnPVP, showPVEHint);
-        } else if (ctx.currentState == PVP || ctx.currentState == PVE) {
+            HandleMenuInput(ctx, mouse, btnPVE, btnPVP);
+        }
+        else if (ctx.currentState == PVP || ctx.currentState == PVE) {
             HandleGameInput(ctx, mouse, btnBack);
+
+            if (ctx.currentState == PVE && !ctx.gameOver && ctx.currentPlayer == 2) {
+                AIMove(ctx);
+            }
         }
 
         BeginDrawing();
@@ -32,16 +40,15 @@ int main() {
 
             bool hoverPVE = CheckCollisionPointRec(mouse, btnPVE);
             DrawRectangleRounded(btnPVE, 0.3f, 10, hoverPVE ? LIGHTGRAY : GRAY);
-            const char* textPVE = "Single Player (Coming Soon)";
+            const char* textPVE = "Single Player";
             DrawText(textPVE, btnPVE.x + (btnPVE.width - MeasureText(textPVE, 20)) / 2, btnPVE.y + 20, 20, hoverPVE ? BLACK : WHITE);
 
             bool hoverPVP = CheckCollisionPointRec(mouse, btnPVP);
             DrawRectangleRounded(btnPVP, 0.3f, 10, hoverPVP ? LIGHTGRAY : GRAY);
             const char* textPVP = "Two Players";
             DrawText(textPVP, btnPVP.x + (btnPVP.width - MeasureText(textPVP, 20)) / 2, btnPVP.y + 20, 20, hoverPVP ? BLACK : WHITE);
-
-            if (showPVEHint) DrawText("AI mode will be added later!", 270, 550, 20, RED);
-        } else {
+        }
+        else if (ctx.currentState == PVP || ctx.currentState == PVE) {
             DrawBoard();
             DrawPieces(ctx.board);
             DrawPreview(ctx, mouse);
