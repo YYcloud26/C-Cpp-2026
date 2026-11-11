@@ -26,6 +26,7 @@ void ResetGame(GameContext& ctx, GameState nextState) {
     ctx.gameOver = false;
     ctx.winner = 0;
     ctx.currentState = nextState;
+    ctx.history.clear();
 }
 
 void PlacePiece(GameContext& ctx, int row, int col) {
@@ -33,10 +34,29 @@ void PlacePiece(GameContext& ctx, int row, int col) {
         return;
     }
     ctx.board[row][col] = ctx.currentPlayer;
+
+    ctx.history.push_back({row, col});
+
     if (CheckWin(ctx.board, row, col, ctx.currentPlayer)) {
         ctx.gameOver = true;
         ctx.winner = ctx.currentPlayer;
     } else {
         ctx.currentPlayer = (ctx.currentPlayer == 1) ? 2 : 1;
     }
+}
+
+void UndoPiece(GameContext& ctx) {
+    if (ctx.history.size() < 2) return;
+
+    auto last = ctx.history.back();
+    ctx.history.pop_back();
+    ctx.board[last.first][last.second] = 0;
+
+    auto secondLast = ctx.history.back();
+    ctx.history.pop_back();
+    ctx.board[secondLast.first][secondLast.second] = 0;
+
+    ctx.currentPlayer = 1;
+    ctx.gameOver = false;
+    ctx.winner = 0;
 }
