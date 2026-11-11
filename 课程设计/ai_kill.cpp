@@ -1,9 +1,13 @@
 #include "ai_kill.h"
+#include "zobrist.h"
 #include <algorithm>
+#include <unordered_set>
 
-bool maxKillSearch(int board[BOARD_SIZE][BOARD_SIZE], int role, int depth, int aiPlayer, int humanPlayer, std::vector<Point>& path);
+std::unordered_set<uint64_t> killVisited;
 
-bool minKillSearch(int board[BOARD_SIZE][BOARD_SIZE], int role, int depth, int aiPlayer, int humanPlayer, std::vector<Point>& path);
+bool maxKillSearch(int board[BOARD_SIZE][BOARD_SIZE], uint64_t hash, int role, int depth, int aiPlayer, int humanPlayer, std::vector<Point>& path);
+
+bool minKillSearch(int board[BOARD_SIZE][BOARD_SIZE], uint64_t hash, int role, int depth, int aiPlayer, int humanPlayer, std::vector<Point>& path);
 
 std::vector<Point> findKillPoints(const int board[BOARD_SIZE][BOARD_SIZE], int role, int scoreThreshold, int aiPlayer, int humanPlayer) {
     std::vector<Point> result;
@@ -32,14 +36,20 @@ std::vector<Point> findKillPoints(const int board[BOARD_SIZE][BOARD_SIZE], int r
     return result;
 }
 
-bool maxKillSearch(int board[BOARD_SIZE][BOARD_SIZE], int role, int depth, int aiPlayer, int humanPlayer, std::vector<Point>& path) {
+bool maxKillSearch(int board[BOARD_SIZE][BOARD_SIZE], uint64_t hash, int role, int depth, int aiPlayer, int humanPlayer, std::vector<Point>& path) {
     if (depth < 0) return false;
 
+    if (killVisited.count(hash)) return false;
+
     std::vector<Point> points = findKillPoints(board, role, SCORE_FOUR / 2, aiPlayer, humanPlayer);
-    if (points.empty()) return false;
+    if (points.empty()) {
+        killVisited.insert(hash);
+        return false;
+    }
 
     for (const auto& p : points) {
         board[p.row][p.col] = role;
+        uint64_t nextHash = Zobrist::go(hash, p.row, p.col, role);
 
         if (isWin(board, p.row, p.col, role)) {
             board[p.row][p.col] = 0;
@@ -47,47 +57,55 @@ bool maxKillSearch(int board[BOARD_SIZE][BOARD_SIZE], int role, int depth, int a
             return true;
         }
 
-        if (minKillSearch(board, role, depth - 1, aiPlayer, humanPlayer, path)) {
+        if (minKillSearch(board, nextHash, role, depth - 1, aiPlayer, humanPlayer, path)) {
             board[p.row][p.col] = 0;
             path.push_back(p);
             return true;
         }
         board[p.row][p.col] = 0;
     }
+    killVisited.insert(hash);
     return false;
 }
 
-bool minKillSearch(int board[BOARD_SIZE][BOARD_SIZE], int role, int depth, int aiPlayer, int humanPlayer, std::vector<Point>& path) {
+bool minKillSearch(int board[BOARD_SIZE][BOARD_SIZE], uint64_t hash, int role, int depth, int aiPlayer, int humanPlayer, std::vector<Point>& path) {
     if (depth < 0) return false;
+    if (killVisited.count(hash)) return false;
 
     int oppRole = (role == 1) ? 2 : 1;
 
     std::vector<Point> points = findKillPoints(board, 0, SCORE_FOUR / 2, aiPlayer, humanPlayer);
-    if (points.empty()) return false;
+    if (points.empty()) return true;
 
     for (const auto& p : points) {
         board[p.row][p.col] = oppRole;
+        uint64_t nextHash = Zobrist::go(hash, p.row, p.col, oppRole);
 
         if (isWin(board, p.row, p.col, oppRole)) {
             board[p.row][p.col] = 0;
+            killVisited.insert(hash);
             return false;
         }
 
-       bool m = maxKillSearch(board, role, depth - 1, aiPlayer, humanPlayer, path);
+       bool m = maxKillSearch(board, nextHash, role, depth - 1, aiPlayer, humanPlayer, path);
         board[p.row][p.col] = 0;
 
-        if (!m) return false;
+        if (!m) {
+            killVisited.insert(hash);
+            return false;
+        }
     }
     return true;
 }
 
-bool GetKillMove(const int board[BOARD_SIZE][BOARD_SIZE], int aiPlayer, int humanPlayer, int maxDepth, Point& bestMove) {
+bool GetKillMove(const int board[BOARD_SIZE][BOARD_SIZE],uint64_t hash, int aiPlayer, int humanPlayer, int maxDepth, Point& bestMove) {
     for (int depth = 1; depth <= maxDepth; depth += 2) {
+        killVisited.clear();
         std::vector<Point> path;
         int tempBoard[BOARD_SIZE][BOARD_SIZE];
         std::copy(&board[0][0], &board[0][0] + BOARD_SIZE * BOARD_SIZE, &tempBoard[0][0]);
 
-        if (maxKillSearch(tempBoard, aiPlayer, depth, aiPlayer, humanPlayer, path)) {
+        if (maxKillSearch(tempBoard, hash, aiPlayer, depth, aiPlayer, humanPlayer, path)) {
             if (!path.empty()) {
                 bestMove = path.back();
                 return true;
